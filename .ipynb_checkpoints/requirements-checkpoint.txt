@@ -1,0 +1,7 @@
+python-igraph
+pandas
+numpy
+scipy
+rpy2
+matplotlib
+seaborn
