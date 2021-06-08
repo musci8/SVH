@@ -170,7 +170,7 @@ def get_svn(df,mp=True):
 	set_b = dict(zip(df.b.unique(),[1]*df.b.nunique()))
 	names = g.vs['name']
 	g.vs['type'] = [set_b.get(names[i],0) for i in range(g.vcount())]    
-	g_deg = dict(zip(range(g.vcount()),g.degree()))
+	g_deg = dict(zip(names,g.degree()))
 	nb = df['b'].nunique()
 
 	g_bip = g.bipartite_projection(which=0,multiplicity=True)
@@ -181,7 +181,7 @@ def get_svn(df,mp=True):
 		edge = g_bip.es[i]
 		s = edge.source
 		t = edge.target
-		tuples.append((w,nb,g_deg[s],g_deg[t]))
+		tuples.append((w,nb,g_deg[names[s]],g_deg[names[t]]))
 
 	g_bip.es['params'] = tuples
 
