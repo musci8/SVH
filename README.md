@@ -4,6 +4,10 @@ Code for extracting Statistically Validated Hypergraphs
 Based on
 F. Musciotto, F. Battiston, R. N. Mantegna, Detecting informative higher-order interactions in statistically validated hypergraphs, arxiv.org/abs/2103.16484
 
+UPDATE 26/09/2022
+
+Added function get_svs for the extraction of Statistically Validated Simplices.
+
 ## Setup
 
 ```pip install -r requirements.txt```
