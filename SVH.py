@@ -145,7 +145,135 @@ def get_svh(df,max_size=10,mp=True):
 		
 	return svh
 
+def p_appr(t):
+    """
+    Return approximated p-value.
+    
+    Parameters
+    ----------
+    
+    t   :tuple
+        Tuple containing (N12,N,N1,N2,...Nn)
+        
+    Returns
+    -------
+    p-value:    float
+                approximated p-value associated to the input tuple
+    """
+    n12 = t[0]
+    n = t[1]
+    ns = np.array(t[2:])
+    order = len(ns)
+    p = st.binom.sf(n12-1,p=np.prod(ns/n),n=n)
+    if p>=0:
+        return p
+    else:
+        print(n12,n,ns)
+        return p
 
+def expand(x,order):
+    return tuple(combinations(x,order))
+
+def expand_filter(x,order,drop):
+    return list(set(combinations(x,order)).difference(drop))
+
+def tuple_to_validate(x,groups,N,deg_a):
+    return tuple([groups[x],N])+tuple([deg_a[ii] for ii in x])
+
+def get_svs(df,min_size=2,max_size=0,approximate=True):
+
+    """
+    Extract the Statistically Validated Simplices.
+
+    Parameters
+    -------------
+    df:			DataFrame 
+        Table with two columns ['a','b'] that represent the hypergraph to be validated. 'a' contains the nodes of the hypergraph and 'b' the hyperlink a node participate to.
+
+    min_order:	int
+        Minimum size of the simplices to be tested
+
+    max_order:	int
+        Maximum size of the simplices to be tested
+
+    approximate:bool
+        Whether to use approximate p-value. At the moment only approximated version is implemented
+
+    Returns
+    -------------
+    svs:		DataFrame
+        The DataFrame is a Table with columns ['group','pvalue','fdr']. 
+        'group' contains all the simplices (mapped as tuples) tested in the hypergraph
+        'pvalue' reports the pvalue
+        'fdr' is a bool that is True if the simplex has been validated, False otherwise
+    """
+    observables = df.groupby('b')['a'].apply(lambda x: tuple(sorted(x))).tolist()
+    
+    if max_size!=0:
+        max_size = min(max_size,max(map(len,observables)))
+    else:
+        max_size = max(map(len,observables))
+        
+
+    s_groups = []
+
+    neigh_set_a_sub = dict(df.groupby('a')['b'].apply(list).reset_index().values)
+    N = df.b.nunique()
+    na = df.a.nunique()
+
+    svh_dfs = []
+
+    for order in list(range(min_size,max_size+1))[::-1]:
+
+        drop = []
+        for l in list(map(lambda x: tuple(combinations(x,order)),s_groups)):
+            drop.extend(l)
+        
+        if not approximate:
+        
+            groups = set()
+            for l in (map(lambda x: tuple(combinations(x,order)), filter(lambda x: len(x)>=order,observables))): 
+                for g in l: groups.add(g)
+            groups = groups.difference(drop)
+                    
+        else:
+            deg_a = Counter(df.a)
+            groups = defaultdict(int)
+            for l in (map(lambda x: tuple(combinations(x,order)), filter(lambda x: len(x)>=order,observables))): 
+                for g in l: 
+                    if g not in drop: groups[g]+=1
+
+        p = Pool(processes=cpu_count())
+        if not approximate:
+            pvalues = dict(zip(groups,p.map(_pvalue_intersect,zip(groups,[neigh_set_a_sub]*len(groups),[N]*len(groups)))))
+        else:
+            pvalues = dict(zip(groups,p.map(p_appr,[tuple([groups[i],N])+tuple([deg_a[ii] for ii in i]) for i in groups])))
+            
+        p.close()
+
+        n_possible = binom(na,order)
+        bonf = 0.01/n_possible
+
+        temp_df = pd.DataFrame(pvalues.items())
+        #print(temp_df)
+        try:
+            temp_df.columns = ['group','pvalue']
+        except: temp_df = pd.DataFrame(columns=['group','pvalue'])
+        #print(temp_df.pvalue.min())
+        ps = np.sort(temp_df.pvalue)
+        k = np.arange(1,len(ps)+1)*bonf
+        try: fdr = k[ps<k][-1] 
+        except: fdr = 0
+        if approximate: temp_df['w'] = temp_df.group.apply(lambda x: groups[x])
+        temp_df['fdr'] = temp_df['pvalue']<fdr
+
+        svh_dfs.append(temp_df)#.query('fdr'))
+
+        s_groups_order = temp_df.query('fdr').group.tolist()
+
+        s_groups.extend(s_groups_order)
+
+    return pd.concat(svh_dfs)
 
 def get_svn(df,mp=True):
 	"""
