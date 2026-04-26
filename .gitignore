@@ -1,11 +1,12 @@
 # notebooks
 **/_*.ipynb
 SVMIS/notebook_tests
-SVMIS
+
 
 # data
-SVMIS/*.parquet.bro
+SVMIS/**/*.parquet.bro
 SVMIS/data/**/*.csv
+SVMIS/data/**/*.txt
 
 
 # Byte-compiled / optimized / DLL files

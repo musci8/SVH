@@ -76,7 +76,7 @@ def intersection_distribution(set_sizes, N):
     return current_dist
 
 
-def _pvalue_svmis_exact(group, node_neighbors, n_groups):
+def _pvalue_exact(t):
     """
     Compute the p-value of the observed intersection
     of a list of neighbor lists, using iterative hypergeometric convolution.
@@ -95,6 +95,8 @@ def _pvalue_svmis_exact(group, node_neighbors, n_groups):
     group_pval : float
         P-value for the group considered: P(X >= observed intersection)
     """
+
+    group, node_neighbors, n_groups = t
 
     # get the hyperedges where each node in the group participates and get their sizes
     neigh_lists = [node_neighbors[node] for node in group]
@@ -141,6 +143,23 @@ def _pvalue_svmis_approx(t):
     
 
 def fdr_correction(pvalues, n_tests, alpha):
+    """ 
+    Apply Benjamini-Hochberg FDR correction to a list of p-values.
+
+    Parameters
+    ----------
+    pvalues : array-like
+        List or array of p-values to correct.
+    n_tests : int
+        Total number of tests performed (used for correction).
+    alpha : float
+        Significance level for determining which p-values are significant after correction.
+
+    Returns
+    -------
+    is_significant : array of bool
+        Boolean array indicating which p-values are significant after FDR correction.
+    """
 
     alpha_bonf = alpha / n_tests
 
@@ -157,8 +176,149 @@ def fdr_correction(pvalues, n_tests, alpha):
     return pvalues < fdr
 
 
+def get_svh(H, alpha=0.01, max_size=10, verbose=False, n_workers=1):
+    """
+    Extract the Statistically Validated Hypergraph.
 
-def get_svmis(H, min_size=2, max_size=0, alpha=0.01, approximate=True):
+    Parameters
+    -------------
+    H: hypergraphx.Hypergraph
+        The input hypergraph
+
+    max_size: int
+        Maximum size of the hyperlinks to be tested
+
+    verbose: bool
+        Whether to print progress bars during the computation.
+
+    n_workers: int
+        Number of worker processes to use for parallel computation of p-values. If n_workers > 1, the computation will be parallelized using multiprocessing.Pool.
+
+    Returns
+    -------------
+    svh: dict
+        Dictionary where keys are hyperlink size and values are DataFrame with the result of validation. Each DataFrame is a Table with columns ['group','pvalue','fdr']. 
+        'group' contains all the hyperlinks (mapped as tuples) present in the hypergraph
+        'pvalue' reports the pvalue
+        'fdr' is a bool that is True if the hyperlink belongs to the SVH, False otherwise
+    """
+
+    # transform the hypergraph in its bipartite representation
+    df = _get_bipartite_representation(H)
+
+    # get the size of each hyperedge
+    #deg_set_b = df.groupby('b')['a'].count().reset_index()
+
+    # get mapping from edges to nodes, and size to edges
+    edge_to_nodes = (
+        df.groupby("b")["a"]
+        .apply(lambda x: tuple(sorted(x)))
+        .to_dict()
+    )
+
+    order_to_edges = defaultdict(list)
+    for b, nodes in edge_to_nodes.items():
+        order = len(nodes)
+        if 2 <= order <= max_size:
+            order_to_edges[order].append(b)
+    order_to_edges = dict(order_to_edges)
+
+
+    # # get all the sizes and keep those between 2 and max_size
+    # orders = deg_set_b.a.unique()
+    # orders = orders[(orders >= 2) & (orders <= max_size)]
+    
+    #pvalues = {}
+    svh = {}
+    #for order in np.sort(orders):
+    for order in sorted(order_to_edges.keys()):
+        # get the hyperedges of the current size
+        #sub_deg = deg_set_b.query('a==@order').b.tolist()
+
+        #sub_edges = df.query('b in @sub_deg')
+        #tuples = sub_edges.groupby('b')['a'].apply(lambda x: tuple(sorted(x))).unique().tolist()
+
+        #tuples_order = list(filter(lambda x: len(x) == order, tuples))
+        #neigh_set_a_sub = dict(sub_edges.groupby('a')['b'].apply(list).reset_index().values)
+        #N = len(sub_deg)
+
+        # take hyperedges of that order
+        edge_ids = order_to_edges[order]
+        N = len(edge_ids)
+
+        # for each node, get the list of edges
+        #node_neighbors = defaultdict(list)
+        node_neighbors = defaultdict(set)
+        for b in edge_ids:
+            for node in edge_to_nodes[b]:
+                #node_neighbors[node].append(b)
+                node_neighbors[node].add(b)
+        node_neighbors = dict(node_neighbors)
+
+        tuples_order = sorted(set(edge_to_nodes[b] for b in edge_ids))
+
+        pvals = {}
+        if n_workers > 1:
+            raise NotImplementedError("Multiprocessing is not implemented yet for SVH. Please set n_workers=1.")
+            # p = Pool(processes=cpu_count())
+            # pvalues[order] = dict(zip(tuples_order,p.map(_pvalue_exact,zip(tuples_order,[neigh_set_a_sub]*len(tuples_order),[N]*len(tuples_order)))))
+            # p.close()
+        else:
+            # pvalues[order] = dict(zip(tuples_order,
+            #                           map(_pvalue_exact, 
+            #                               zip(tuples_order,[neigh_set_a_sub]*len(tuples_order),[N]*len(tuples_order)))))
+            for group in tuples_order:
+                pvals[group] = _pvalue_exact((group, node_neighbors, N))
+
+        # correct pvalue for multiple hypotheses testing
+        nodes_in_order = set()
+        for g in pvals:
+            nodes_in_order.update(g)
+
+        n_a = len(nodes_in_order)
+        n_possible = special.binom(n_a, order)
+        #bonf = alpha / n_possible
+
+        temp_df = pd.DataFrame(pvals.items(), columns=['group', 'pvalue'])
+
+        # apply correction
+        temp_df.loc[:, "fdr"] = fdr_correction(temp_df.pvalue, n_possible, alpha=alpha)
+
+        # ps = np.sort(temp_df.pvalue)
+        # k = np.arange(1, len(ps) + 1) * bonf
+        # try:
+        #     fdr = k[ps < k][-1]
+        # except Exception:
+        #     fdr = 0
+        # temp_df['fdr'] = temp_df['pvalue'] < fdr
+        svh[order] = temp_df
+
+    return svh
+
+    # svh = {}
+    # # links = 0
+    # # links_order = {}
+    # for order in sorted(pvalues):
+    #     n_a = len(set(np.concatenate(list(pvalues[order].keys()))))
+    #     n_possible = special.binom(n_a, order)
+    #     bonf = alpha / n_possible
+
+    #     temp_df = pd.DataFrame(pvalues[order].items())
+    #     temp_df.columns = ['group', 'pvalue']
+    #     ps = np.sort(temp_df.pvalue)
+    #     k = np.arange(1, len(ps) + 1) * bonf
+    #     try:
+    #         fdr = k[ps < k][-1]
+    #     except Exception:
+    #         fdr = 0
+    #     temp_df['fdr'] = temp_df['pvalue'] < fdr
+    #     svh[order] = temp_df
+
+    # return svh
+
+
+
+def get_svmis(H, min_size=2, max_size=0, alpha=0.01, approximate=True, verbose=False, n_workers=1):
 
     """
     Extract the Statistically Validated Maximal Interacting Sets.
@@ -180,8 +340,11 @@ def get_svmis(H, min_size=2, max_size=0, alpha=0.01, approximate=True):
     approximate: bool
         Whether to use approximate p-value. At the moment only approximated version is implemented
 
-    n_workers: int
+    verbose: bool
+        Whether to print progress bars during the computation.
 
+    n_workers: int
+        Number of worker processes to use for parallel computation of p-values. If n_workers > 1, the computation will be parallelized using multiprocessing.Pool.
 
     Returns
     -------------
@@ -213,7 +376,7 @@ def get_svmis(H, min_size=2, max_size=0, alpha=0.01, approximate=True):
 
     significant_sets = []
     svmis = {}
-    for size in tqdm(list(range(min_size, max_size+1))[::-1], total=max_size - min_size, leave=False):
+    for size in tqdm(list(range(min_size, max_size+1))[::-1], total=max_size - min_size, leave=False, disable=not verbose):
 
         # generate all the subgroups of size 'size' from the already created groups
         # if a set s is deemed significant, we do not test all the subsets of size size of the set s
@@ -241,7 +404,7 @@ def get_svmis(H, min_size=2, max_size=0, alpha=0.01, approximate=True):
             # compute p values
             pvalues = dict(zip(groups, 
                                #p.map(_pvalue_intersect,
-                               map(_pvalue_svmis_exact,
+                               map(_pvalue_exact,
                                       zip(groups, [neigh_set_a_sub]*len(groups), [N]*len(groups)))))
                     
         else:
