@@ -11,7 +11,7 @@
 #SBATCH --error=logs/%x.%j_%a.err 
 ##SBATCH --mail-user=bett_lorenzo@phd.ceu.edu 
 ##SBATCH --mail-type=BEGIN,FAIL,END 
-#SBATCH --array=0-3149
+#SBATCH --array=0-314
 
 # activate conda and the environment of interest 
 source ~/miniconda3/etc/profile.d/conda.sh
@@ -30,7 +30,7 @@ ARRAY_ID=${SLURM_ARRAY_TASK_ID}
 EXPERIMENT_NAME="sum_two_numbers_experiment_1"
 
 # define output file
-RESULTS_DIR="results/"
+RESULTS_DIR="results"
 out_file="${RESULTS_DIR}/experiment_${ARRAY_ID}.json"
 echo "Task ID:  ${ARRAY_ID}"
 echo "Out dir:  ${out_file}"
@@ -46,4 +46,5 @@ echo "Starting script..."
 echo ""
 
 # run the job
-srun python syntetic_benchmark_analysis.py --params-file configs/benchmark_params_table.json --output-file $out_file --experiment-n $ARRAY_ID
+#srun python syntetic_benchmark_analysis.py --params-file configs/benchmark_params_table.json --output-file $out_file --experiment-n $ARRAY_ID
+python syntetic_benchmark_analysis.py --params-file configs/benchmark_params_table.json --output-file results/experiment_123.json --experiment-n 123

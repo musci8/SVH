@@ -25,19 +25,18 @@ def main():
             T = int(density * comb(N, 2))
             for closure in closures:
                 for f in fs:
-                    for rep in range(replicates):
-                        param_dict = {
-                            "N": N,
-                            "density": density,
-                            "closure": closure,
-                            "f": f,
-                            "iter": rep,
-                            "T": T,
-                            "max_size_implanted_sets": max_size_implanted_sets,
-                            "max_size": max_size,
-                            "n_interactions": n_interactions
-                        }
-                        params_table_df.append(param_dict)
+                    param_dict = {
+                        "N": N,
+                        "density": density,
+                        "closure": closure,
+                        "f": f,
+                        "T": T,
+                        "max_size_implanted_sets": max_size_implanted_sets,
+                        "max_size": max_size,
+                        "n_interactions": n_interactions,
+                        "n_replicates": replicates
+                    }
+                    params_table_df.append(param_dict)
 
     params_table_df = pd.DataFrame(params_table_df)
 
