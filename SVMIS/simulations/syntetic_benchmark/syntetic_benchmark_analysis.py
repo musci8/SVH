@@ -2,6 +2,7 @@ import os
 import json
 import argparse
 import numpy as np
+from torch import seed
 from scipy import special
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -122,14 +123,17 @@ def from_pandas_to_hypergraph(df):
 
 def main(args):
     
-    # read parameters
+    # read parameters and fix seed
     params_dict = read_parameters(args.params_file, args.experiment_n)
 
     n_replicates = params_dict.pop("n_replicates")
     for iter in range(n_replicates):
 
+        # set random seed
+        seed = args.experiment_n * 10_000 + iter
+        RNG = np.random.RandomState(seed)
+
         # generate synthetic benchmark
-        RNG = np.random.RandomState(seed=args.experiment_n)
         df_hyper, implanted_groups = create_benchmark(N=params_dict["N"], T=params_dict["T"], max_size_implanted_sets=params_dict["max_size_implanted_sets"], closure=params_dict["closure"], max_size=params_dict["max_size"], f=params_dict["f"], n_interactions=params_dict["n_interactions"], rng=RNG)
         
         true_groups = [tuple(sorted(g)) for g in implanted_groups]
@@ -143,13 +147,13 @@ def main(args):
         svh_dict = get_svh(H, alpha=0.01, max_size=4, verbose=False)
         res_svh = evaluate_svh(svh_dict, true_groups)
         for res in res_svh:
-            results.append({"method": "svh", **params_dict, "iter":iter, **res})
+            results.append({"method": "svh", **params_dict, "iter":iter, "seed":seed, **res})
 
         # statistically validated sets (approximate)
         svmis_dict = get_svmis(H, alpha=0.01, min_size=2, max_size=4, approximate=True, verbose=False)
         res_svmis = evaluate_svmis(svmis_dict, true_groups)
         for res in res_svmis:
-            results.append({"method": "svmis", **params_dict, "iter":iter, **res})
+            results.append({"method": "svmis", **params_dict, "iter":iter, "seed":seed, **res})
 
         # store results
         with open(args.output_file, 'a') as ww:
