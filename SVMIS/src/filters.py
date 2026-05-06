@@ -231,7 +231,7 @@ def get_svh(H, alpha=0.01, max_size=10, verbose=False, n_workers=1):
     #pvalues = {}
     svh = {}
     #for order in np.sort(orders):
-    for order in sorted(order_to_edges.keys()):
+    for order in tqdm(sorted(order_to_edges.keys()), total=len(order_to_edges), leave=False, disable=not verbose):
         # get the hyperedges of the current size
         #sub_deg = deg_set_b.query('a==@order').b.tolist()
 

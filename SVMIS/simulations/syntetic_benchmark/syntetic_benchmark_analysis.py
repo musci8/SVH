@@ -142,6 +142,7 @@ def main(args):
 
         results = []
 
+<<<<<<< Updated upstream
         # svh
         svh_dict = get_svh(H, alpha=0.01, max_size=4, verbose=False)
         res_svh = evaluate_svh(svh_dict, true_groups)
@@ -153,6 +154,24 @@ def main(args):
         res_svmis = evaluate_svmis(svmis_dict, true_groups)
         for res in res_svmis:
             results.append({"method": "svmis", **params_dict, "iter":iter, "seed":seed, **res})
+=======
+        if params_dict["method"] == "svh":
+            # svh
+            svh_dict = get_svh(H, alpha=0.01, max_size=4, verbose=False)
+            res_svh = evaluate_svh(svh_dict, true_groups)
+            for res in res_svh:
+                results.append({"method": "svh", **params_dict, "iter":iter, **res})
+
+        elif params_dict["method"] == "svmis":
+            # statistically validated sets (approximate)
+            svmis_dict = get_svmis(H, alpha=0.01, min_size=2, max_size=4, approximate=True, verbose=False)
+            res_svmis = evaluate_svmis(svmis_dict, true_groups)
+            for res in res_svmis:
+                results.append({"method": "svmis", **params_dict, "iter":iter, **res})
+
+        else:
+            raise ValueError(f"Unknown method: {params_dict['method']}")
+>>>>>>> Stashed changes
 
         # store results
         with open(args.output_file, 'a') as ww:
