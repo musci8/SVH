@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1 
 #SBATCH --mem-per-cpu=5G
-#SBATCH --time=03:00:00
+#SBATCH --time=24:00:00
 #SBATCH --output=logs/%x.%j_%a.out
 #SBATCH --error=logs/%x.%j_%a.err 
 #SBATCH --mail-user=betti_lorenzo@phd.ceu.edu 
