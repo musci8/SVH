@@ -220,7 +220,7 @@ def create_benchmark(N, T, max_size_implanted_sets, closure, f=1., max_size=10, 
         for _ in range(n_to_expand):
 
             # sample number of additional nodes to add from uniform distribution
-            size = rng.choice(range(0, max_size + 1 - len(g)))
+            size = rng.choice(range(1, max_size + 1 - len(g)))
             new_edge = g + tuple(rng.choice(other_nodes, replace=False, size=size))
             interactions.append(new_edge)       
 
