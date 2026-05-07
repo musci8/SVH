@@ -142,7 +142,7 @@ def _pvalue_svmis_approx(t):
         return np.clip(p, 0, 1)
     
 
-def fdr_correction(pvalues, n_tests, alpha):
+def benjamini_hochberg_correction(pvalues, n_tests, alpha):
     """ 
     Apply Benjamini-Hochberg FDR correction to a list of p-values.
 
@@ -174,6 +174,61 @@ def fdr_correction(pvalues, n_tests, alpha):
         fdr = 0
 
     return pvalues < fdr
+
+
+def bonferroni_correction(pvalues, n_tests, alpha):
+    """ 
+    Apply Bonferroni correction to a list of p-values.
+
+    Parameters
+    ----------
+    pvalues : array-like
+        List or array of p-values to correct.
+    n_tests : int
+        Total number of tests performed (used for correction).
+    alpha : float
+        Significance level for determining which p-values are significant after correction.
+
+    Returns
+    -------
+    is_significant : array of bool
+        Boolean array indicating which p-values are significant after Bonferroni correction.
+    """
+
+    alpha_bonf = alpha / n_tests
+
+    return pvalues < alpha_bonf
+
+
+def multiple_hypotheses_correction(pvalues, n_tests, alpha, method="bonferroni"):
+    """
+    Apply multiple hypotheses correction to a list of p-values.
+
+    Parameters
+    ----------
+    pvalues : array-like
+        List or array of p-values to correct.
+    n_tests : int
+        Total number of tests performed (used for correction). Can eventually be larger than the size of the pvalues list.
+    alpha : float
+        Significance level for determining which p-values are significant after correction.
+    method : str
+        Correction method to use. Options: "bonferroni", "bh". bh stands for Benjamini-Hochberg FDR correction. Default is "bonferroni".
+
+    Returns
+    -------
+    is_significant : array of bool
+        Boolean array indicating which p-values are significant after correction.
+    """
+
+    if method == "bonferroni":
+        return bonferroni_correction(pvalues, n_tests, alpha)
+
+    elif method == "bh":
+        return benjamini_hochberg_correction(pvalues, n_tests, alpha)
+
+    else:
+        raise ValueError(f"Unknown correction method: {method}")
 
 
 def get_svh(H, alpha=0.01, max_size=10, verbose=False, n_workers=1):
@@ -282,7 +337,7 @@ def get_svh(H, alpha=0.01, max_size=10, verbose=False, n_workers=1):
         temp_df = pd.DataFrame(pvals.items(), columns=['group', 'pvalue'])
 
         # apply correction
-        temp_df.loc[:, "fdr"] = fdr_correction(temp_df.pvalue, n_possible, alpha=alpha)
+        temp_df.loc[:, "fdr"] = multiple_hypotheses_correction(temp_df.pvalue, n_possible, alpha=alpha, method="bh")
 
         # ps = np.sort(temp_df.pvalue)
         # k = np.arange(1, len(ps) + 1) * bonf
@@ -434,7 +489,7 @@ def get_svmis(H, min_size=2, max_size=0, alpha=0.01, approximate=True, verbose=F
 
         # apply fdr correction
         n_tests = special.binom(num_nodes, size)
-        temp_df.loc[:, "fdr"] = fdr_correction(temp_df.pvalue, n_tests, alpha=alpha)
+        temp_df.loc[:, "fdr"] = multiple_hypotheses_correction(temp_df.pvalue, n_tests, alpha=alpha, method="bh")
         
         svmis[size] = temp_df
 

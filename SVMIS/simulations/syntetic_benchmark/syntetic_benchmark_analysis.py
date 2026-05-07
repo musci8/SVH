@@ -14,9 +14,10 @@ import sys
 sys.path += ["../../"]
 
 from src.synthetic_bentchmark import create_benchmark
-from src.filters import get_svh, get_svmis, fdr_correction
+from src.filters import get_svh, get_svmis, multiple_hypotheses_correction
 
 ALPHAS = [1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 0.1]
+MULTIPLE_HP_CORRECTION_METHODS = ["bonferroni", "bh"]
 
 
 def read_parameters(params_file, idx):
@@ -64,18 +65,19 @@ def evaluate_svh(svh_dict, true_groups):
     # get validated groups for each alpha
     results_svh = []
     for alpha in ALPHAS:
-        pred_svh = []
-        for size, df_res in svh_dict.items():
-            n_nodes_involved = n_nodes_involved_size[size]
-            n_tests = special.binom(n_nodes_involved, size)
-            df_res.loc[:, "fdr"] = fdr_correction(df_res["pvalue"], alpha=alpha, n_tests=n_tests)
+        for mht_method in MULTIPLE_HP_CORRECTION_METHODS:
+            pred_svh = []
+            for size, df_res in svh_dict.items():
+                n_nodes_involved = n_nodes_involved_size[size]
+                n_tests = special.binom(n_nodes_involved, size)
+                df_res.loc[:, "fdr"] = multiple_hypotheses_correction(df_res["pvalue"], n_tests, alpha=alpha, method=mht_method)
 
-            pred_svh.extend([tuple(sorted(g)) for g in df_res.query("fdr == True")['group']])
+                pred_svh.extend([tuple(sorted(g)) for g in df_res.query("fdr == True")['group']])
 
-        res_dict_svh_alpha = evaluate_performance(true_groups, pred_svh)
-        res_dict_svh_alpha = {"alpha": alpha, **res_dict_svh_alpha}
+            res_dict_svh_alpha = evaluate_performance(true_groups, pred_svh)
+            res_dict_svh_alpha = {"alpha": alpha, "mht_method": mht_method, **res_dict_svh_alpha}
 
-        results_svh.append(res_dict_svh_alpha)
+            results_svh.append(res_dict_svh_alpha)
 
     return results_svh
 
@@ -88,17 +90,18 @@ def evaluate_svmis(svmis_dict, true_groups):
     # get validated groups for each alpha
     results_svmis = []
     for alpha in ALPHAS:
-        pred_svmis = []
-        for size, df_res in svmis_dict.items():
-            n_tests = special.binom(n_nodes, size)
-            df_res.loc[:, "fdr"] = fdr_correction(df_res["pvalue"], alpha=alpha, n_tests=n_tests)
+        for mht_method in MULTIPLE_HP_CORRECTION_METHODS:
+            pred_svmis = []
+            for size, df_res in svmis_dict.items():
+                n_tests = special.binom(n_nodes, size)
+                df_res.loc[:, "fdr"] = multiple_hypotheses_correction(df_res["pvalue"], n_tests, alpha=alpha, method=mht_method)
 
-            pred_svmis.extend([tuple(sorted(g)) for g in df_res.query("fdr == True")['group']])
+                pred_svmis.extend([tuple(sorted(g)) for g in df_res.query("fdr == True")['group']])
 
-        res_dict_svmis = evaluate_performance(true_groups, pred_svmis)
-        res_dict_svmis = {"alpha": alpha, **res_dict_svmis}
+            res_dict_svmis = evaluate_performance(true_groups, pred_svmis)
+            res_dict_svmis = {"alpha": alpha, "mht_method": mht_method, **res_dict_svmis}
 
-        results_svmis.append(res_dict_svmis)
+            results_svmis.append(res_dict_svmis)
 
     return results_svmis
 
