@@ -100,7 +100,8 @@ def create_benchmark(N, T, max_size_implanted_sets, closure, f=None, max_size=10
             # note that the sampling of the size starts from 1, as we want to ensure that the implanted set is always part of the interaction
 
             # get the fraction of those to be expanded into larger hyperedges
-            n_to_expand = int(f * n_edges_to_create)
+            n_same = int((1 - f) * n_edges_to_create)
+            n_to_expand = n_edges_to_create - n_same
 
             # create hyperedges as the implanted sets
             for _ in range(n_edges_to_create - n_to_expand):
