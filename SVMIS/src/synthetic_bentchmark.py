@@ -57,6 +57,7 @@ def create_benchmark(N, T, max_size_implanted_sets, closure, f=None, max_size=10
         # create closed simplices (i.e. size+1 sets for each num_closed)
         for _ in range(num_closed):
             clique_nodes = rng.choice(range(N), replace=False, size=size+1)
+            clique_nodes = tuple(sorted(clique_nodes))
 
             # add all the subsets of size n
             for g in combinations(clique_nodes, size):
@@ -92,7 +93,7 @@ def create_benchmark(N, T, max_size_implanted_sets, closure, f=None, max_size=10
     for g in groups:
 
         # generate l interactions sampled from binomial
-        n_edges_to_create = stats.binom.rvs(p=.5, n=n_interactions)
+        n_edges_to_create = stats.binom.rvs(p=.5, n=n_interactions, random_state=rng)
 
         if f is not None:
             # use the parameter f to control how often implanted sets are diluted
