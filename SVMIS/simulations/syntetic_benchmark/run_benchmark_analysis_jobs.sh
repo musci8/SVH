@@ -11,7 +11,7 @@
 #SBATCH --error=logs/%x.%j_%a.err 
 #SBATCH --mail-user=betti_lorenzo@phd.ceu.edu 
 #SBATCH --mail-type=BEGIN,FAIL,END 
-#SBATCH --array=0-629
+#SBATCH --array=0-863
 
 # activate conda and the environment of interest 
 source ~/miniconda3/etc/profile.d/conda.sh
